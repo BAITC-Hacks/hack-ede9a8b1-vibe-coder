@@ -103,3 +103,11 @@ The exact Dense request was run five times; each response returned, in order, `H
 - Focused tests cover dominance, equal vectors, exact layers, crowding boundaries/interior, hard-filter isolation, single-objective behavior, determinism and the maximum-three invariant. Existing AI structured-output and fallback tests pass; no new AI calls were added.
 - Measured frontier-only computation on the full 66-profile catalog: **3.194 ms mean over 5 000 runs** in the local Node 24 process. This deliberately passes all profiles to the selector and excludes hard filtering and OpenAI.
 - In the open browser, the Zero demo showed the original rejection counts and the verified `100 000 → 650 000 ₸` relaxation with no cards. Dense showed exactly the three IDs above with their role badges and contractor-specific fallback explanations; OpenAI was unavailable for this request, so the existing fallback remained visible. The live route smoke test also passed Dense, Rare, Zero, category-missing and invalid-JSON responses.
+
+# Synthetic catalog refresh · 23.09.2026
+
+The supplied 66-row `data/contractors.csv` is unchanged (SHA-256 `6a724b6b7dfb5973343e68ba18dadb60fc807d87e3d78f03ee86fb26cb089f7d`). The app now merges it with 24 separately generated profiles from `data/contractors.synthetic.csv`; every added row is marked synthetic. Re-running `npm run generate:synthetic` reproduced the same file hash (`823c37313570b2ef1bd026130b2d69a193af701908fa3eed9c547cfe610fdd71`).
+
+After-load catalog size is 90. Astana's seven named rare categories now have three profiles each; the new additions are restricted to Astana and leave selected city/category gaps. The exact before/after matrix, price ranges, calendar rates, generator rules, and source checksum are in [DATASET_COVERAGE.md](DATASET_COVERAGE.md).
+
+The original Dense, Rare florist, Zero, 15/17 October date-change, and Astana photographer partial/counterfactual outputs still pass against the merged catalog. A normal mixed-source example was also verified: Astana, 25.09.2026, Видеограф, свадьба, 700 000 ₸ returns synthetic `SYN-10021` (350 000 ₸) and supplied `HK-10990` (400 000 ₸); their synthetic flags remain distinct. Validation covers 68 tests, including original-file SHA-256, deterministic generator bytes, generated schema/enums/calendar rules, merged catalog size, and this mixed-source example.

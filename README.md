@@ -8,11 +8,12 @@
 
 **Deterministic software establishes eligibility and ranking truth. AI is constrained to qualitative interpretation and evidence-grounded explanation.**
 
-Код проверяет город, категорию, дату, формат, бюджет, язык и длительность. После фильтров детерминированный Decision Frontier сравнивает экономию бюджета и, если пользователь задал пожелание, совпадение слов и понятий в описаниях. OpenAI получает только выбранные финалисты и пишет пояснения, не меняя состав или порядок. Автономные агенты, база данных и векторное хранилище для 66 профилей не нужны.
+Код проверяет город, категорию, дату, формат, бюджет, язык и длительность. После фильтров детерминированный Decision Frontier сравнивает экономию бюджета и, если пользователь задал пожелание, совпадение слов и понятий в описаниях. OpenAI получает только выбранные финалисты и пишет пояснения, не меняя состав или порядок. Каталог из 66 исходных и 24 отдельно хранящихся синтетических профилей не требует базы данных или векторного хранилища.
 
 ```mermaid
 flowchart TD
-    CSV[Локальный CSV: 66 профилей] --> Parse[Парсинг и проверка Zod]
+    OriginalCSV[Исходный CSV: 66 профилей] --> Parse[Парсинг и проверка Zod]
+    SyntheticCSV[Отдельный CSV: 24 синтетических профиля] --> Parse
     Form[Форма пользователя] --> Validate[Валидация запроса]
     Parse --> Filter[Детерминированные фильтры]
     Validate --> Filter
@@ -45,7 +46,7 @@ npm run build
 npm start
 ```
 
-Никаких внешних шрифтов, изображений, БД или ключей для базового сценария не требуется. Каталог должен оставаться в `data/contractors.csv`. В конфигурации Next.js он включён в трассировку файлов API для серверного развёртывания; статический export для API не подходит. После изменения CSV перезапустите процесс и пересоберите приложение, чтобы обновились варианты формы.
+Никаких внешних шрифтов, изображений, БД или ключей для базового сценария не требуется. Сохраните исходный каталог в `data/contractors.csv`, а дополнение — в `data/contractors.synthetic.csv`. Оба файла включены в трассировку API для серверного развёртывания; статический export для API не подходит. После изменения CSV перезапустите процесс и пересоберите приложение, чтобы обновились варианты формы.
 
 ### Environment variables
 
@@ -144,11 +145,11 @@ node --import tsx scripts/smoke-api.ts
 node --env-file=.env.local --import tsx scripts/verify-live.ts
 ```
 
-Тесты не требуют сети или OpenAI-ключа. Покрыты hard filters, максимум 3, частичные/пустые состояния, Pareto dominance/layers/crowding, обе стратегии, стабильный порядок и значения, CSV и демо. AI-тесты проверяют изоляцию финалистов, неизменность ID и decision metadata, неизвестные/пропущенные/повторяющиеся ID, неподтверждённые цитаты, неверный ответ, сетевой сбой и fallback. Route-тесты проверяют HTTP-контракт. Smoke-скрипт проверяет работающий сервер.
+Тесты не требуют сети или OpenAI-ключа. Покрыты hard filters, максимум 3, частичные/пустые состояния, Pareto dominance/layers/crowding, обе стратегии, стабильный порядок и значения, объединённый CSV-каталог и демо. AI-тесты проверяют изоляцию финалистов, неизменность ID и decision metadata, неизвестные/пропущенные/повторяющиеся ID, неподтверждённые цитаты, неверный ответ, сетевой сбой и fallback. Route-тесты проверяют HTTP-контракт. Тесты набора данных проверяют хеш исходного файла, схему, уникальность и воспроизводимость синтетических строк. Smoke-скрипт проверяет работающий сервер.
 
 ## Demo Scenarios
 
-Все сценарии подтверждены на исходном CSV. Кнопки в интерфейсе заполняют форму; затем нажмите «Подобрать подрядчиков». Для A и C дата **2026-10-15**, город **Алматы**, язык не задан.
+Все основные сценарии проверены на объединённом каталоге; исходные демонстрационные профили сохранены. Кнопки в интерфейсе заполняют форму; затем нажмите «Подобрать подрядчиков». Для A и C дата **2026-10-15**, город **Алматы**, язык не задан.
 
 | Сценарий | Категория / формат | Бюджет | Дополнительно | Проверенный результат |
 |---|---|---:|---|---|
@@ -176,6 +177,10 @@ C: из 10 профилей **2 заняты, 1 не поддерживает ф
 
 Дополнительная проверка `CATEGORY_NOT_FOUND`: B с городом `Зарубежье`.
 
+### Synthetic + supplied profiles together
+
+Чтобы показать происхождение карточек на одном обычном запросе: **Астана, 2026-09-25, Видеограф, свадьба, 700 000 ₸**. В категории/городе 4 профиля; на дату и формат проходят 2. Короткий список: **Кира Невис** (`SYN-10021`, синтетический) и **Тодороки Шото** (`HK-10990`, профиль из исходного CSV). Синтетическая карточка помечена в UI; логика подбора не меняет веса для synthetic-профилей.
+
 ## Counterfactual decision support
 
 When fewer than three profiles qualify, the system can show up to two verified single-condition changes. Each simulation reruns the same deterministic eligibility filter; no LLM chooses or validates these changes. City, category, and event format are never relaxed. Budget uses ascending prices from the catalog, date checks the nearest qualifying day within ±14 days and the catalog's busy-date window (a later date wins equal-distance ties), duration checks actual lower `max_hours` thresholds when duration was requested, and language is tested only by removing the requested requirement. Suggestions are presented in the stable order budget, date, duration, language. These units are not combined into a made-up universal minimum.
@@ -186,7 +191,7 @@ A single weighted score hides the trade-off between price and qualitative fit. W
 
 The deterministic word-and-concept matcher is the only preference signal; it is not deep semantic understanding. With no non-empty preference, strategy becomes `SINGLE_OBJECTIVE`: candidates sort by normalized budget efficiency, then price and ID. The UI uses small role labels (preference anchor, more economical among remaining alternatives, alternative) rather than presenting a universal quality score. OpenAI only explains the already selected finalists.
 
-At the current scale, 66 in-memory profiles are filtered first and the small eligible pool is compared locally. A larger production system could use indexed structured filtering and semantic candidate retrieval to reduce that pool, then reuse the same multi-objective selection. The current in-memory CSV implementation is not claimed to scale to millions of profiles as-is.
+At the current scale, 90 in-memory profiles are filtered first and the small eligible pool is compared locally. A larger production system could use indexed structured filtering and semantic candidate retrieval to reduce that pool, then reuse the same multi-objective selection. The current in-memory CSV implementation is not claimed to scale to millions of profiles as-is.
 
 ## Project structure
 
@@ -198,9 +203,15 @@ src/lib/validation/         схема запроса
 src/lib/recommendation/     фильтры, Decision Frontier, локальный поиск, fallback
 src/lib/ai/                 интерфейс, проверка AI-ответа, OpenAI SDK
 src/lib/demoScenarios.ts    единые воспроизводимые сценарии
-scripts/                   CLI-демо и HTTP smoke check
-tests/                     бизнес-правила, AI-граница, API
+scripts/                   генератор synthetic CSV, CLI-демо и HTTP smoke check
+tests/                     бизнес-правила, данные, AI-граница, API
 ```
+
+## Synthetic dataset enrichment
+
+The official supplied file remains `data/contractors.csv` with **66 unchanged profiles** (13 rows in that supplied file already carry `synthetic: true`). Twenty-four additional profiles live only in `data/contractors.synthetic.csv`; all have `synthetic: true`, with `city_imputed: false` and `price_imputed: false`. The merged catalog contains **90 profiles total**, **37 marked synthetic** (13 original flags plus 24 additions). The interface visibly marks every synthetic recommendation and leaves supplied profiles unmarked.
+
+Run `npm run generate:synthetic` to reproduce the additional CSV. The generator uses a fixed seed, explicit profile definitions, the source schema and supported values, and seeded busy-date selection inside the published calendar window. Tests verify deterministic bytes and the original CSV SHA-256. These records broaden Astana coverage and exercise multi-criteria choices; they are not training data. The before/after city × category counts, prices, calendar rates, retained demos, and mixed-source query are in [DATASET_COVERAGE.md](docs/DATASET_COVERAGE.md).
 
 ## Limitations
 
