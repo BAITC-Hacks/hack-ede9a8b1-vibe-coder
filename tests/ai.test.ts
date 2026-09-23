@@ -12,7 +12,7 @@ test("AI sees only finalists, not the catalog; cannot change ranking", async () 
   const service: ExplanationService = { async generate(input) { calls++; assert.equal(input.candidates.length, 3); return { candidates: valid().candidates.reverse() }; } };
   const before = base(); const after = await enhanceExplanations(before, request, service);
   assert.equal(calls, 1); assert.equal(after.meta.aiUsed, true);
-  assert.deepEqual(after.recommendations.map(r => [r.contractor.id, r.score]), before.recommendations.map(r => [r.contractor.id, r.score]));
+  assert.deepEqual(after.recommendations.map(r => [r.contractor.id, r.decisionMeta]), before.recommendations.map(r => [r.contractor.id, r.decisionMeta]));
   assert.ok(after.recommendations.every(r => r.explanationSource === "ai"));
 });
 test("no key means useful deterministic explanations", async () => {

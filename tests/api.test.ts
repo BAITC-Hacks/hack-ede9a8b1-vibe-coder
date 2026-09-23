@@ -18,6 +18,7 @@ test("HTTP route: success, partial, zero, category missing, invalid input", asyn
       const body = await response.json();
       assert.equal(body.status, status); assert.equal(body.recommendations.length, count); assert.equal(body.partial, partial);
       assert.ok(Array.isArray(body.counterfactuals));
+      assert.ok(["PARETO", "SINGLE_OBJECTIVE"].includes(body.decision.strategy));
       assert.ok(body.recommendations.length <= 3);
       if (status === "NO_ELIGIBLE_CANDIDATES") {
         assert.equal(body.counterfactuals[0]?.type, "BUDGET");

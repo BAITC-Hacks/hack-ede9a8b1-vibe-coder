@@ -53,7 +53,8 @@ test("lower price wins without preference; semantic relevance wins with preferen
   assert.equal(recommend(profiles, request).recommendations[0].contractor.id, "cheap");
   const ranked = recommend(profiles, { ...request, preference: "импровизация юмор" });
   assert.equal(ranked.recommendations[0].contractor.id, "relevant");
-  assert.ok(ranked.recommendations.every(r => r.score >= 0 && r.score <= 1));
+  assert.equal(ranked.decision.strategy, "PARETO");
+  assert.ok(ranked.recommendations.every(r => r.decisionMeta.objectives.preferenceFitBps !== undefined));
 });
 test("one and two result partial states are honest", () => {
   for (const count of [1, 2]) {
@@ -105,7 +106,7 @@ test("real date change excludes the newly busy finalist", () => {
   const request = demoScenarios[0].request;
   const first = recommend(data, request);
   const second = recommend(data, { ...request, date: "2026-10-17" });
-  assert.deepEqual(first.recommendations.map(r => r.contractor.id), ["HK-44923", "HK-77838", "HK-35215"]);
+  assert.deepEqual(first.recommendations.map(r => r.contractor.id), ["HK-44923", "HK-29829", "HK-77838"]);
   assert.deepEqual(second.recommendations.map(r => r.contractor.id), ["HK-77838", "HK-35215", "HK-44733"]);
   const unavailable = data.find(c => c.id === "HK-44923")!;
   assert.equal(unavailable.busy_dates.includes(request.date), false);
