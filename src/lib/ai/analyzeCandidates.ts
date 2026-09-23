@@ -36,10 +36,12 @@ export async function enhanceExplanations(result: RecommendationResponse, reques
       if (!source || c.evidence.some(quote => !source.description.includes(quote))) throw new Error("Unknown ID or ungrounded quote");
     }
     const analysis = new Map(parsed.candidates.map(c => [c.contractorId, c]));
+    const aiElapsedMs = Math.round(performance.now() - started);
     return { ...result, recommendations: result.recommendations.map(r => ({ ...r, explanation: analysis.get(r.contractor.id)!.explanation, aiEvidence: analysis.get(r.contractor.id)!.evidence, explanationSource: "ai" })),
-      meta: { ...result.meta, aiUsed: true, aiStatus: "used", elapsedMs: result.meta.elapsedMs + Math.round(performance.now() - started) } };
+      meta: { ...result.meta, aiUsed: true, aiStatus: "used", aiElapsedMs, elapsedMs: result.meta.elapsedMs + aiElapsedMs } };
   } catch {
     // Do not log profile data, API keys, or raw model output.
-    return { ...result, meta: { ...result.meta, aiStatus: "unavailable", elapsedMs: result.meta.elapsedMs + Math.round(performance.now() - started) } };
+    const aiElapsedMs = Math.round(performance.now() - started);
+    return { ...result, meta: { ...result.meta, aiStatus: "unavailable", aiElapsedMs, elapsedMs: result.meta.elapsedMs + aiElapsedMs } };
   }
 }

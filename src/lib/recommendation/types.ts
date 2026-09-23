@@ -23,5 +23,5 @@ export interface RecommendationResponse {
   funnel: Funnel;
   rejectionReasons: RejectionReasons;
   summary: string;
-  meta: { totalProfiles: number; elapsedMs: number; aiUsed: boolean; aiStatus: "disabled" | "skipped" | "used" | "unavailable" };
+  meta: { totalProfiles: number; elapsedMs: number; aiElapsedMs?: number; aiUsed: boolean; aiStatus: "disabled" | "skipped" | "used" | "unavailable" };
 }

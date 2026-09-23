@@ -9,8 +9,9 @@ const groups = [
 ] as const;
 const stop = new Set(["нужен", "нужна", "нужно", "хочу", "важно", "очень", "хороший", "хорошей", "ведущий", "мероприятие", "мероприятия", "который", "чтобы", "будет", "меня", "русском", "казахском", "английском"]);
 function terms(text: string): string[] {
-  // Ignore negated phrases instead of incorrectly rewarding a forbidden attribute.
-  const positive = normalize(text).replace(/(?:^|\s)(?:без|не)\s+[^,.!?;\n]*/gu, " ");
+  // Conservatively exclude explicit negative clauses up to punctuation/newline.
+  // This removes positive credit; it does not infer a prohibition or apply penalties.
+  const positive = normalize(text).replace(/(?<![\p{L}\p{N}_])(?:без|не|никаких|избегать)\s+[^,.!?;:\n•]*/gu, " ");
   return [...new Set((positive.match(/[\p{L}]+/gu) ?? [])
     .filter(word => word.length >= 4 && !stop.has(word))
     .map(word => groups.find(([, pattern]) => pattern.test(word))?.[0] ?? word))];

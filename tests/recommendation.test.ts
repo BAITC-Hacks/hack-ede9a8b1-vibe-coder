@@ -99,3 +99,16 @@ test("real demos: dense, rare, zero", () => {
   assert.equal(rare.partial, true); assert.equal(rare.recommendations.length, 2);
   assert.equal(zero.status, "NO_ELIGIBLE_CANDIDATES"); assert.ok(zero.rejectionReasons.budget > 0);
 });
+
+test("real date change excludes the newly busy finalist", () => {
+  const data = loadContractors();
+  const request = demoScenarios[0].request;
+  const first = recommend(data, request);
+  const second = recommend(data, { ...request, date: "2026-10-17" });
+  assert.deepEqual(first.recommendations.map(r => r.contractor.id), ["HK-44923", "HK-77838", "HK-35215"]);
+  assert.deepEqual(second.recommendations.map(r => r.contractor.id), ["HK-77838", "HK-35215", "HK-44733"]);
+  const unavailable = data.find(c => c.id === "HK-44923")!;
+  assert.equal(unavailable.busy_dates.includes(request.date), false);
+  assert.equal(unavailable.busy_dates.includes("2026-10-17"), true);
+  assert.ok(second.recommendations.every(r => !r.contractor.busy_dates.includes("2026-10-17")));
+});
