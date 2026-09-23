@@ -1,0 +1,6 @@
+import type { RecommendationResponse } from "@/lib/recommendation/types";
+import { rejectionLabels } from "@/lib/recommendation/recommend";
+export function DecisionTrace({ result }: { result: RecommendationResponse }) {
+  const f = result.funnel;
+  return <section className="trace" aria-label="Этапы отбора"><div className="trace-heading"><p className="eyebrow">КАК ПОЛУЧИЛСЯ РЕЗУЛЬТАТ</p><span>{result.meta.elapsedMs} мс</span></div><ol>{[[f.initialCategoryCityCount, "в категории и городе"], [f.availableCount, "свободны на дату"], [f.durationCompatibleCount, "прошли все условия"], [result.recommendations.length, "в рекомендации"]].map(([count, label]) => <li key={label}><strong>{count}</strong><span>{label}</span></li>)}</ol><details><summary>Все этапы и причины исключения</summary><p>После формата: {f.formatCompatibleCount} · бюджета: {f.budgetCompatibleCount} · языка: {f.languageCompatibleCount} · длительности: {f.durationCompatibleCount}.</p><p>{Object.entries(result.rejectionReasons).filter(([, count]) => count > 0).map(([key, count]) => `${count} — ${rejectionLabels[key as keyof typeof rejectionLabels]}`).join("; ") || "На этих этапах никто не исключён."}</p><p className="source">Каждый профиль учитывается по первой причине исключения.</p></details></section>;
+}
