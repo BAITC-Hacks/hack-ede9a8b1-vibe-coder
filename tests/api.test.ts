@@ -17,6 +17,12 @@ test("HTTP route: success, partial, zero, category missing, invalid input", asyn
       assert.equal(response.status, 200);
       const body = await response.json();
       assert.equal(body.status, status); assert.equal(body.recommendations.length, count); assert.equal(body.partial, partial);
+      assert.ok(Array.isArray(body.counterfactuals));
+      assert.ok(body.recommendations.length <= 3);
+      if (status === "NO_ELIGIBLE_CANDIDATES") {
+        assert.equal(body.counterfactuals[0]?.type, "BUDGET");
+        assert.equal(body.counterfactuals[0]?.to, 650_000);
+      }
     }
     for (const body of ["{", "{}", JSON.stringify({ ...demoScenarios[0].request, date: "2026-02-30" })]) {
       const response = await POST(new Request("http://localhost/api/recommend", { method: "POST", body }));

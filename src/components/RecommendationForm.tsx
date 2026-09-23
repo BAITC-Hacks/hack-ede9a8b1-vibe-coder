@@ -7,6 +7,18 @@ import { demoScenarios } from "@/lib/demoScenarios";
 import { RecommendationCard } from "./RecommendationCard";
 import { DecisionTrace } from "./DecisionTrace";
 
+function CounterfactualPanel({ suggestions }: { suggestions: RecommendationResponse["counterfactuals"] }) {
+  if (!suggestions.length) return null;
+  const title: Record<typeof suggestions[number]["type"], string> = { BUDGET: "Бюджет", DATE: "Дата", DURATION: "Длительность", LANGUAGE: "Язык" };
+  const value = (suggestion: typeof suggestions[number]) => {
+    if (suggestion.type === "BUDGET") return `${suggestion.from.toLocaleString("ru-RU")} ₸ → ${suggestion.to.toLocaleString("ru-RU")} ₸`;
+    if (suggestion.type === "DATE") return `${suggestion.from} → ${suggestion.to}`;
+    if (suggestion.type === "DURATION") return `${suggestion.from} ч → ${suggestion.to} ч`;
+    return `«${suggestion.from}» → без обязательного языка`;
+  };
+  return <section className="counterfactuals" aria-label="Что можно изменить"><h3>Что можно изменить?</h3>{suggestions.map(suggestion => <div className="counterfactual" key={suggestion.type}><strong>{title[suggestion.type]}</strong><span>{value(suggestion)}</span><p>{suggestion.explanation}</p></div>)}</section>;
+}
+
 export function RecommendationForm({ options }: { options: CatalogOptions }) {
   const [input, setInput] = useState<RecommendationRequest>(demoScenarios[0].request);
   const [result, setResult] = useState<RecommendationResponse | null>(null);
@@ -39,5 +51,5 @@ export function RecommendationForm({ options }: { options: CatalogOptions }) {
     </div><button className="submit" type="submit">{loading ? "Подбираем и готовим пояснения…" : "Подобрать подрядчиков"}<span aria-hidden="true">↗</span></button><p className="form-note">Только профили из каталога. До трёх рекомендаций.</p></fieldset></form>
     {error && <p role="alert" className="error">{error}</p>}
   </section><aside className="side-panel"><p className="eyebrow">НЕ ПРОСТО СПИСОК ИМЁН</p><h2>У каждого выбора<br />есть основание.</h2><div className="principle"><span>01</span><div><h3>Сначала условия</h3><p>Город, дата, формат и бюджет. Занятые и неподходящие исключаются.</p></div></div><div className="principle"><span>02</span><div><h3>Затем ваши пожелания</h3><p>Сравниваем слова и понятия с описаниями. Сортируем по прозрачной формуле.</p></div></div><div className="principle"><span>03</span><div><h3>Выбор с объяснением</h3><p>Показываем факты из профиля и причины, по которым он подходит.</p></div></div><div className="demos"><p className="eyebrow">ПОПРОБУЙТЕ СЦЕНАРИЙ</p>{demoScenarios.map((demo, i) => <button disabled={loading} type="button" key={demo.name} onClick={() => { setInput({ ...demo.request }); setResult(null); setError(""); }}><span>{i + 1}. {demo.name}</span><span>↗</span></button>)}<p className="hint">Сценарий заполняет форму. Нажмите «Подобрать».</p></div></aside></div>
-  <div ref={resultRef} className="results" aria-live="polite" aria-busy={loading}>{loading && <p className="loading">Проверяем каталог и готовим объяснения…</p>}{result && <><DecisionTrace result={result} /><div className="result-heading"><span className="step">02</span><div><h2>{result.status === "SUCCESS" ? "Ваш короткий список" : result.status === "CATEGORY_NOT_FOUND" ? "Такой категории здесь пока нет" : "Условия оказались слишком строгими"}</h2><p>{result.summary}</p></div></div>{result.meta.aiStatus === "unavailable" && <p className="notice">AI-пояснения сейчас недоступны. Рекомендации и объяснения по данным каталога готовы.</p>}{result.recommendations.length ? <div className="cards">{result.recommendations.map((item, i) => <RecommendationCard key={item.contractor.id} item={item} index={i} request={submitted} />)}</div> : <div className="empty">Измените условия в форме выше — мы проверим каталог заново.</div>}</>}</div></>;
+  <div ref={resultRef} className="results" aria-live="polite" aria-busy={loading}>{loading && <p className="loading">Проверяем каталог и готовим объяснения…</p>}{result && <><DecisionTrace result={result} /><div className="result-heading"><span className="step">02</span><div><h2>{result.status === "SUCCESS" ? "Ваш короткий список" : result.status === "CATEGORY_NOT_FOUND" ? "Такой категории здесь пока нет" : "Условия оказались слишком строгими"}</h2><p>{result.summary}</p></div></div>{result.meta.aiStatus === "unavailable" && <p className="notice">AI-пояснения сейчас недоступны. Рекомендации и объяснения по данным каталога готовы.</p>}{result.recommendations.length ? <div className="cards">{result.recommendations.map((item, i) => <RecommendationCard key={item.contractor.id} item={item} index={i} request={submitted} />)}</div> : <div className="empty">Измените условия в форме выше — мы проверим каталог заново.</div>}<CounterfactualPanel suggestions={result.counterfactuals} /></>}</div></>;
 }

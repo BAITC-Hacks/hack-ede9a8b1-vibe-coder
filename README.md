@@ -176,6 +176,10 @@ C: из 10 профилей **2 заняты, 1 не поддерживает ф
 
 Дополнительная проверка `CATEGORY_NOT_FOUND`: B с городом `Зарубежье`.
 
+## Counterfactual decision support
+
+When fewer than three profiles qualify, the system can show up to two verified single-condition changes. Each simulation reruns the same deterministic eligibility filter; no LLM chooses or validates these changes. City, category, and event format are never relaxed. Budget uses ascending prices from the catalog, date checks the nearest qualifying day within ±14 days and the catalog's busy-date window (a later date wins equal-distance ties), duration checks actual lower `max_hours` thresholds when duration was requested, and language is tested only by removing the requested requirement. Suggestions are presented in the stable order budget, date, duration, language. These units are not combined into a made-up universal minimum.
+
 ## Project structure
 
 ```text

@@ -16,6 +16,11 @@ export interface Recommendation {
   explanationSource: "ai" | "fallback";
   aiEvidence?: string[];
 }
+export type CounterfactualSuggestion =
+  | { type: "BUDGET"; from: number; to: number; previousCount: number; resultingCount: number; addedContractorIds: string[]; explanation: string }
+  | { type: "DATE"; from: string; to: string; deltaDays: number; previousCount: number; resultingCount: number; addedContractorIds: string[]; explanation: string }
+  | { type: "DURATION"; from: number; to: number; previousCount: number; resultingCount: number; addedContractorIds: string[]; explanation: string }
+  | { type: "LANGUAGE"; from: string; to: null; previousCount: number; resultingCount: number; addedContractorIds: string[]; explanation: string };
 export interface RecommendationResponse {
   status: "SUCCESS" | "CATEGORY_NOT_FOUND" | "NO_ELIGIBLE_CANDIDATES";
   partial: boolean;
@@ -23,5 +28,6 @@ export interface RecommendationResponse {
   funnel: Funnel;
   rejectionReasons: RejectionReasons;
   summary: string;
+  counterfactuals: CounterfactualSuggestion[];
   meta: { totalProfiles: number; elapsedMs: number; aiElapsedMs?: number; aiUsed: boolean; aiStatus: "disabled" | "skipped" | "used" | "unavailable" };
 }

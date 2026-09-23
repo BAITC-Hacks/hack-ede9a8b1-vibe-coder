@@ -54,3 +54,20 @@
 - `scripts/verify-live.ts` — отдельная платная проверка, не входит в `npm test`.
 
 Финальные проверки: **43/43 теста**, `npm run lint` и `npm run build` прошли. В 55 клиентских файлах dev/production и во всех отслеживаемых/новых исходниках значение ключа не обнаружено. `.env.local` игнорируется, отслеживается только `.env.example`. Исходный CSV не изменён. Обычный dev-сервер оставлен запущенным без тестовых overrides.
+# Counterfactual decision support · 23.09.2026
+
+The frozen recommendation pipeline was left intact. Counterfactual suggestions reuse `filterEligible` directly, simulate one condition at a time, retain IDs that became eligible, and never call OpenAI. A result with three cards gets no suggestions; category-not-found remains distinct and gets none. The API keeps the original result and adds `counterfactuals`; the UI renders a small secondary section only when suggestions exist.
+
+Search rules: budget checks distinct catalog prices in ascending order; date checks days from nearest to farthest within ±14 days and the actual `busy_dates` calendar window, preferring the later date on ties; duration checks actual lower non-null `max_hours` values in descending order; language removes only the supplied requirement. Each dimension is independently minimal for its target (one eligible profile for zero results, three for one or two). The stable display order is budget, date, duration, language, capped at two; there is no combined cross-unit minimum.
+
+## Verified real-catalog examples
+
+**Zero result.** Request: Алматы, 2026-10-15, Ведущий, корпоратив, 100 000 ₸; no language or duration. Existing result: `NO_ELIGIBLE_CANDIDATES`, zero cards; 10 profiles in category/city, 2 busy, 1 format mismatch, 7 over budget. Minimal successful budget threshold: 650 000 ₸. Rerun yields 1 candidate, `HK-44923` (Мицури Канроджи). The baseline remains zero cards.
+
+**Partial result.** Request: Астана, 2026-10-15, Фотограф, свадьба, 10 000 000 ₸; no optional constraints. Existing result: 2 cards (`HK-98562`, `HK-61323`). Moving the date to 2026-10-18 (3 days later) admits `HK-97737` and yields 3 eligible profiles. The suggestion is verified against `busy_dates` and the normal filter.
+
+**Rare category.** The original florist demo remains at 2 cards (`HK-39372`, `HK-90001`). There are only two profiles in that city/category, so no single allowed relaxation reaches three; the system correctly returns no suggestion.
+
+**Dense and date-change demos.** The original dense request remains ordered `HK-44923`, `HK-77838`, `HK-35215`; it has exactly 3 cards and `counterfactuals: []`. The existing date-change regression remains: 2026-10-15 returns those three IDs, while 2026-10-17 excludes busy `HK-44923` and returns `HK-77838`, `HK-35215`, `HK-44733`.
+
+The checked-in `npm run demo` output includes the counterfactual metadata so the zero-result example is reproducible. Deterministic tests cover each threshold search and AI boundary/fallback tests continue to pass; no live OpenAI request was needed because the OpenAI integration was not changed.
