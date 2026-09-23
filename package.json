@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "demo": "tsx scripts/demo.ts"
+    "demo": "tsx scripts/demo.ts",
+    "generate:synthetic": "tsx scripts/generate-synthetic-profiles.ts"
   },
   "dependencies": {
     "csv-parse": "^7.0.2",

@@ -53,7 +53,8 @@ test("lower price wins without preference; semantic relevance wins with preferen
   assert.equal(recommend(profiles, request).recommendations[0].contractor.id, "cheap");
   const ranked = recommend(profiles, { ...request, preference: "импровизация юмор" });
   assert.equal(ranked.recommendations[0].contractor.id, "relevant");
-  assert.ok(ranked.recommendations.every(r => r.score >= 0 && r.score <= 1));
+  assert.equal(ranked.decision.strategy, "PARETO");
+  assert.ok(ranked.recommendations.every(r => r.decisionMeta.objectives.preferenceFitBps !== undefined));
 });
 test("one and two result partial states are honest", () => {
   for (const count of [1, 2]) {
@@ -82,12 +83,13 @@ test("fallback is specific and transparent about unmatched wishes", () => {
 test("schema rejects malformed dates, coerced numbers, zero, infinity and excessive text", () => {
   for (const overrides of [{ date: "2026-02-30" }, { date: "2026-13-01" }, { budgetKzt: "1000" }, { budgetKzt: 0 }, { budgetKzt: Infinity }, { durationHours: -1 }, { preference: "a".repeat(1501) }]) assert.equal(recommendationSchema.safeParse({ ...request, ...overrides }).success, false);
 });
-test("CSV sanity: 66 profiles, flags, lists, busy dates, nulls", () => {
+test("merged catalog sanity: 66 supplied plus 24 separately generated profiles", () => {
   const data = loadContractors();
-  assert.equal(data.length, 66); assert.equal(new Set(data.map(c => c.id)).size, 66);
+  assert.equal(data.length, 90); assert.equal(new Set(data.map(c => c.id)).size, 90);
   assert.deepEqual(catalogOptions(data).cities, ["Алматы", "Астана", "Зарубежье"]);
-  assert.equal(data.filter(c => c.synthetic).length, 13);
-  assert.equal(data.filter(c => c.max_hours === null).length, 9);
+  assert.equal(data.filter(c => c.synthetic).length, 37);
+  assert.equal(data.filter(c => c.id.startsWith("SYN-")).length, 24);
+  assert.equal(data.filter(c => c.max_hours === null).length, 16);
   assert.ok(data.some(c => c.categories.length > 1));
   assert.ok(data[0].busy_dates.includes("2026-10-01"));
   assert.equal(data[0].price_imputed, true);
@@ -96,8 +98,12 @@ test("CSV sanity: 66 profiles, flags, lists, busy dates, nulls", () => {
 test("real demos: dense, rare, zero", () => {
   const [dense, rare, zero] = demoScenarios.map(d => recommend(loadContractors(), d.request));
   assert.equal(dense.status, "SUCCESS"); assert.ok(dense.funnel.durationCompatibleCount > 3);
+  assert.deepEqual(dense.recommendations.map(item => item.contractor.id), ["HK-44923", "HK-29829", "HK-77838"]);
   assert.equal(rare.partial, true); assert.equal(rare.recommendations.length, 2);
+  assert.deepEqual(rare.recommendations.map(item => item.contractor.id), ["HK-39372", "HK-90001"]);
   assert.equal(zero.status, "NO_ELIGIBLE_CANDIDATES"); assert.ok(zero.rejectionReasons.budget > 0);
+  assert.equal(zero.recommendations.length, 0);
+  assert.equal(zero.counterfactuals.find(item => item.type === "BUDGET")?.to, 650_000);
 });
 
 test("real date change excludes the newly busy finalist", () => {
@@ -105,7 +111,7 @@ test("real date change excludes the newly busy finalist", () => {
   const request = demoScenarios[0].request;
   const first = recommend(data, request);
   const second = recommend(data, { ...request, date: "2026-10-17" });
-  assert.deepEqual(first.recommendations.map(r => r.contractor.id), ["HK-44923", "HK-77838", "HK-35215"]);
+  assert.deepEqual(first.recommendations.map(r => r.contractor.id), ["HK-44923", "HK-29829", "HK-77838"]);
   assert.deepEqual(second.recommendations.map(r => r.contractor.id), ["HK-77838", "HK-35215", "HK-44733"]);
   const unavailable = data.find(c => c.id === "HK-44923")!;
   assert.equal(unavailable.busy_dates.includes(request.date), false);

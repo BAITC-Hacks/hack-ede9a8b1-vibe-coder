@@ -54,3 +54,60 @@
 - `scripts/verify-live.ts` — отдельная платная проверка, не входит в `npm test`.
 
 Финальные проверки: **43/43 теста**, `npm run lint` и `npm run build` прошли. В 55 клиентских файлах dev/production и во всех отслеживаемых/новых исходниках значение ключа не обнаружено. `.env.local` игнорируется, отслеживается только `.env.example`. Исходный CSV не изменён. Обычный dev-сервер оставлен запущенным без тестовых overrides.
+# Counterfactual decision support · 23.09.2026
+
+The frozen recommendation pipeline was left intact. Counterfactual suggestions reuse `filterEligible` directly, simulate one condition at a time, retain IDs that became eligible, and never call OpenAI. A result with three cards gets no suggestions; category-not-found remains distinct and gets none. The API keeps the original result and adds `counterfactuals`; the UI renders a small secondary section only when suggestions exist.
+
+Search rules: budget checks distinct catalog prices in ascending order; date checks days from nearest to farthest within ±14 days and the actual `busy_dates` calendar window, preferring the later date on ties; duration checks actual lower non-null `max_hours` values in descending order; language removes only the supplied requirement. Each dimension is independently minimal for its target (one eligible profile for zero results, three for one or two). The stable display order is budget, date, duration, language, capped at two; there is no combined cross-unit minimum.
+
+## Verified real-catalog examples
+
+**Zero result.** Request: Алматы, 2026-10-15, Ведущий, корпоратив, 100 000 ₸; no language or duration. Existing result: `NO_ELIGIBLE_CANDIDATES`, zero cards; 10 profiles in category/city, 2 busy, 1 format mismatch, 7 over budget. Minimal successful budget threshold: 650 000 ₸. Rerun yields 1 candidate, `HK-44923` (Мицури Канроджи). The baseline remains zero cards.
+
+**Partial result.** Request: Астана, 2026-10-15, Фотограф, свадьба, 10 000 000 ₸; no optional constraints. Existing result: 2 cards (`HK-98562`, `HK-61323`). Moving the date to 2026-10-18 (3 days later) admits `HK-97737` and yields 3 eligible profiles. The suggestion is verified against `busy_dates` and the normal filter.
+
+**Rare category.** The original florist demo remains at 2 cards (`HK-39372`, `HK-90001`). There are only two profiles in that city/category, so no single allowed relaxation reaches three; the system correctly returns no suggestion.
+
+**Dense and date-change demos.** The original dense request remains ordered `HK-44923`, `HK-77838`, `HK-35215`; it has exactly 3 cards and `counterfactuals: []`. The existing date-change regression remains: 2026-10-15 returns those three IDs, while 2026-10-17 excludes busy `HK-44923` and returns `HK-77838`, `HK-35215`, `HK-44733`.
+
+The checked-in `npm run demo` output includes the counterfactual metadata so the zero-result example is reproducible. Deterministic tests cover each threshold search and AI boundary/fallback tests continue to pass; no live OpenAI request was needed because the OpenAI integration was not changed.
+
+# Decision Frontier · 23.09.2026
+
+The hard filters and counterfactual simulations are unchanged. Only the shortlist selection after eligibility changed. The deterministic layer now compares normalized price efficiency and, only when a non-empty preference is present, the existing local word/concept fit. AI still receives only the selected maximum of three finalists for explanations; it does not choose the candidates or modify their decision metadata.
+
+For the seven eligible Dense candidates, budget efficiency is `round((maxEligiblePrice - price) / (maxEligiblePrice - minEligiblePrice) * 10000)`; when every eligible price is identical, all receive 10 000 bps. Preference fit is `round(localSemantic.score * 10000)`. Dominance requires at least as good on every active integer objective and strictly better on one. The Dense preference request activates both objectives and `PARETO`; a request without preference activates only budget efficiency and `SINGLE_OBJECTIVE`.
+
+## Dense comparison
+
+Old weighted-score shortlist: `HK-44923`, `HK-77838`, `HK-35215`.
+
+Decision Frontier shortlist: `HK-44923`, `HK-29829`, `HK-77838`.
+
+| ID | Price | Budget efficiency | Preference fit | Pareto rank | Role / selection reason |
+|---|---:|---:|---:|---:|---|
+| `HK-44923` | 650 000 ₸ | 10 000 bps | 10 000 bps | 1 | Preference anchor; it is cheapest and matches all four local preference terms, so it dominates the eligible set. |
+| `HK-29829` | 700 000 ₸ | 9 231 bps | 0 bps | 2 | Budget anchor among remaining choices; on rank 2 it is an objective boundary (highest budget efficiency / lowest preference fit), so crowding distance gives it boundary priority. It offers a cheaper, explicitly lower-fit alternative. |
+| `HK-77838` | 1 000 000 ₸ | 4 615 bps | 7 500 bps | 2 | Other rank-2 objective boundary (strongest preference fit / lowest budget efficiency in that front); a higher-price choice with strong local word evidence. |
+
+`HK-35215` is an interior candidate in rank 2 (6 154 budget bps, 2 500 preference bps, crowding distance 20 000), while `HK-29829` and `HK-77838` are the rank-2 boundary candidates (infinite crowding distance). Rank 1 has one candidate; the two remaining slots are filled from rank 2 by the two boundary points. This is a broader trade-off presentation than the old weighted list, but only `HK-44923` is Front 1 here; later-layer candidates are not described as Pareto-optimal. The first option dominates the catalog on these two simple signals, so the additional cards are alternative choices, not evidence of equal objective quality.
+
+The exact Dense request was run five times; each response returned, in order, `HK-44923`, `HK-29829`, `HK-77838`, with identical rank, role, and objective metadata.
+
+## Regression and runtime
+
+- Dense remains 3 cards; its changed shortlist is recorded above.
+- Rare florist remains exactly 2 cards (`HK-39372`, `HK-90001`), with no fabricated third profile.
+- Zero result remains 0 cards and retains its verified 650 000 ₸ budget relaxation to `HK-44923`.
+- Date change to 2026-10-17 remains availability-safe and returns `HK-77838`, `HK-35215`, `HK-44733`.
+- Focused tests cover dominance, equal vectors, exact layers, crowding boundaries/interior, hard-filter isolation, single-objective behavior, determinism and the maximum-three invariant. Existing AI structured-output and fallback tests pass; no new AI calls were added.
+- Measured frontier-only computation on the full 66-profile catalog: **3.194 ms mean over 5 000 runs** in the local Node 24 process. This deliberately passes all profiles to the selector and excludes hard filtering and OpenAI.
+- In the open browser, the Zero demo showed the original rejection counts and the verified `100 000 → 650 000 ₸` relaxation with no cards. Dense showed exactly the three IDs above with their role badges and contractor-specific fallback explanations; OpenAI was unavailable for this request, so the existing fallback remained visible. The live route smoke test also passed Dense, Rare, Zero, category-missing and invalid-JSON responses.
+
+# Synthetic catalog refresh · 23.09.2026
+
+The supplied 66-row `data/contractors.csv` is unchanged (SHA-256 `6a724b6b7dfb5973343e68ba18dadb60fc807d87e3d78f03ee86fb26cb089f7d`). The app now merges it with 24 separately generated profiles from `data/contractors.synthetic.csv`; every added row is marked synthetic. Re-running `npm run generate:synthetic` reproduced the same file hash (`823c37313570b2ef1bd026130b2d69a193af701908fa3eed9c547cfe610fdd71`).
+
+After-load catalog size is 90. Astana's seven named rare categories now have three profiles each; the new additions are restricted to Astana and leave selected city/category gaps. The exact before/after matrix, price ranges, calendar rates, generator rules, and source checksum are in [DATASET_COVERAGE.md](DATASET_COVERAGE.md).
+
+The original Dense, Rare florist, Zero, 15/17 October date-change, and Astana photographer partial/counterfactual outputs still pass against the merged catalog. A normal mixed-source example was also verified: Astana, 25.09.2026, Видеограф, свадьба, 700 000 ₸ returns synthetic `SYN-10021` (350 000 ₸) and supplied `HK-10990` (400 000 ₸); their synthetic flags remain distinct. Validation covers 68 tests, including original-file SHA-256, deterministic generator bytes, generated schema/enums/calendar rules, merged catalog size, and this mixed-source example.

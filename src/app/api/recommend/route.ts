@@ -14,6 +14,6 @@ export async function POST(request: Request) {
     const result = recommend(loadContractors(), parsed.data);
     return Response.json(await enhanceExplanations(result, parsed.data, result.recommendations.length ? createExplanationService() : undefined));
   } catch {
-    return Response.json({ error: "SERVER_ERROR", message: "Не удалось прочитать или обработать каталог. Проверьте data/contractors.csv на сервере." }, { status: 500 });
+    return Response.json({ error: "SERVER_ERROR", message: "Не удалось прочитать или обработать каталог. Проверьте исходный и синтетический CSV в data/." }, { status: 500 });
   }
 }
